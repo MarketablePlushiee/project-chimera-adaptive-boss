@@ -44,8 +44,10 @@ namespace Chimera.Player
         [SerializeField] private float perfectParryWindow = 0.24f;
         [SerializeField] private float guardDamageReduction = 0.70f;
         [SerializeField] private float parryStaggerToAttacker = 35f;
+        [SerializeField] private float staggerDuration = 1.0f;
 
         [Header("Referencias Visuales y VFX")]
+        [SerializeField] private Transform visualRoot;
         [SerializeField] private Transform weaponPivot;
         [SerializeField] private GameObject shieldVisual;
         [SerializeField] private Renderer bodyRenderer;
@@ -103,6 +105,7 @@ namespace Chimera.Player
             health.GuardDamageMultiplier = EvaluateGuardMultiplier;
             health.OnPostureBroken += HandlePostureBroken;
             health.OnParriedSuccess += HandleParriedSuccessVFX;
+            health.OnDeath += HandlePlayerDeath;
 
             if (shieldVisual != null)
             {
@@ -461,8 +464,107 @@ namespace Chimera.Player
 
         private void HandlePostureBroken()
         {
+            StopAllCoroutines();
+            isDashing = false;
+            isChargingShot = false;
             SetGuardState(false);
-            stunEndTime = Time.time + 1.0f;
+
+            if (dashTrail != null) dashTrail.emitting = false;
+            health.SetInvulnerable(false);
+
+            stunEndTime = Time.time + staggerDuration;
+            StartCoroutine(PlayerStaggerRoutine());
+        }
+
+        private IEnumerator PlayerStaggerRoutine()
+        {
+            // 1. Estallido inicial de chispas al romperse la guardia/postura
+            CombatVFX.SpawnImpactBurst(
+                transform.position + Vector3.up * 1.1f,
+                vfxMaterial,
+                new Color(0.6f, 0.95f, 1f, 1f),
+                new Color(1f, 1f, 1f, 0f),
+                count: 24,
+                maxSpeed: 8.5f,
+                size: 0.25f
+            );
+
+            // 2. Bucle visual durante el aturdimiento: cuerpo pálido parpadeante + inclinación y temblor
+            float elapsed = 0f;
+            Color paleColor = new Color(0.55f, 0.65f, 0.72f, 1f);
+            Color flickerColor = new Color(0.88f, 0.95f, 1f, 1f);
+
+            while (elapsed < staggerDuration && !health.IsDead)
+            {
+                float pulse = Mathf.PingPong(elapsed * 14f, 1f);
+
+                if (bodyRenderer != null)
+                {
+                    Color currentTint = Color.Lerp(paleColor, flickerColor, pulse);
+                    bodyRenderer.material.color = currentTint;
+                    bodyRenderer.material.SetColor("_EmissionColor", currentTint * Mathf.Lerp(0.10f, 0.75f, pulse));
+                }
+
+                if (visualRoot != null)
+                {
+                    float shakeX = Mathf.Sin(elapsed * 55f) * 0.05f;
+                    visualRoot.localPosition = new Vector3(shakeX, -0.15f, 0f);
+                    visualRoot.localRotation = Quaternion.Euler(26f, 0f, 0f);
+                }
+
+                elapsed += Time.deltaTime;
+                yield return null;
+            }
+
+            // 3. Restaurar postura y material normal al recuperarse
+            if (!health.IsDead)
+            {
+                if (visualRoot != null)
+                {
+                    visualRoot.localPosition = Vector3.zero;
+                    visualRoot.localRotation = Quaternion.identity;
+                }
+
+                if (bodyRenderer != null && normalBodyMaterial != null)
+                {
+                    bodyRenderer.material = normalBodyMaterial;
+                }
+            }
+        }
+
+        private void HandlePlayerDeath()
+        {
+            StopAllCoroutines();
+            isDashing = false;
+            isGuarding = false;
+            isChargingShot = false;
+
+            if (dashTrail != null) dashTrail.emitting = false;
+            if (shieldVisual != null) shieldVisual.SetActive(false);
+
+            CombatVFX.SpawnImpactBurst(
+                transform.position + Vector3.up * 1.0f,
+                vfxMaterial,
+                new Color(0.8f, 0.95f, 1f, 1f),
+                new Color(1f, 1f, 1f, 0f),
+                count: 28,
+                maxSpeed: 10f,
+                size: 0.28f
+            );
+
+            // Cuerpo pálido apagado
+            if (bodyRenderer != null)
+            {
+                bodyRenderer.material.color = new Color(0.75f, 0.78f, 0.82f, 1f);
+                bodyRenderer.material.SetColor("_EmissionColor", Color.black);
+            }
+
+            // Personaje desplomado en el suelo
+            if (visualRoot != null)
+            {
+                visualRoot.localPosition = new Vector3(0f, -0.35f, 0.2f);
+                visualRoot.localRotation = Quaternion.Euler(68f, 0f, -15f);
+            }
         }
 
         public void SetBotControls(Vector2 moveAxis, Vector3 aimWorldPoint, bool guardHeld)
@@ -486,6 +588,11 @@ namespace Chimera.Player
             if (dashTrail != null) dashTrail.emitting = false;
             if (shieldVisual != null) shieldVisual.SetActive(false);
             if (bodyRenderer != null && normalBodyMaterial != null) bodyRenderer.material = normalBodyMaterial;
+            if (visualRoot != null)
+            {
+                visualRoot.localPosition = Vector3.zero;
+                visualRoot.localRotation = Quaternion.identity;
+            }
 
             controller.enabled = false;
             transform.localPosition = localStartPos;

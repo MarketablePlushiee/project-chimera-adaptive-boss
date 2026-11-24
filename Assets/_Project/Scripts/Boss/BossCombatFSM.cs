@@ -57,6 +57,7 @@ namespace Chimera.Boss
         [SerializeField] private Material vfxMaterial;
         [SerializeField] private Transform hammerArmPivot;
         [SerializeField] private Transform visualRoot;
+        [SerializeField] private GameObject shieldSphereVisual;
 
         [Header("Telegrafías en el Suelo (Hijos de Telegraphs)")]
         [SerializeField] private GameObject telegraphLunge;
@@ -141,11 +142,10 @@ namespace Chimera.Boss
 
             health.OnHealthChanged += HandleHealthChanged;
             health.OnPostureBroken += HandlePostureBroken;
-            health.OnHealthChanged += HandleHealthChanged;
-            health.OnPostureBroken += HandlePostureBroken;
             health.OnDeath += HandleBossDeath;
 
             HideAllTelegraphs();
+            if (shieldSphereVisual != null) shieldSphereVisual.SetActive(false);
 
             lungeTrail = CombatVFX.AttachTrail(
                 transform,
@@ -274,6 +274,8 @@ namespace Chimera.Boss
         private IEnumerator MicroDashRoutine(Vector3 dashDir)
         {
             isMicroDashing = true;
+            health.SetInvulnerable(true);
+            if (shieldSphereVisual != null) shieldSphereVisual.SetActive(true);
             if (lungeTrail != null) lungeTrail.emitting = true;
 
             float elapsed = 0f;
@@ -287,6 +289,8 @@ namespace Chimera.Boss
             }
 
             if (lungeTrail != null) lungeTrail.emitting = false;
+            if (shieldSphereVisual != null) shieldSphereVisual.SetActive(false);
+            health.SetInvulnerable(false);
             isMicroDashing = false;
         }
 
@@ -637,6 +641,8 @@ namespace Chimera.Boss
             HideAllTelegraphs();
             isMicroDashing = false;
             if (lungeTrail != null) lungeTrail.emitting = false;
+            health.SetInvulnerable(false);
+            if (shieldSphereVisual != null) shieldSphereVisual.SetActive(false);
             if (visualRoot != null) visualRoot.localPosition = Vector3.zero;
             if (hammerArmPivot != null) hammerArmPivot.localRotation = Quaternion.identity;
 
@@ -650,6 +656,8 @@ namespace Chimera.Boss
             isMicroDashing = false;
             currentAttack = BossAttackType.None;
             if (lungeTrail != null) lungeTrail.emitting = false;
+            health.SetInvulnerable(false);
+            if (shieldSphereVisual != null) shieldSphereVisual.SetActive(false);
 
             // Estallido final de descarga al quedarse sin vida
             Vector3 burstPos = coreRenderer != null
@@ -784,6 +792,8 @@ namespace Chimera.Boss
             isPhase2 = false;
             isMicroDashing = false;
             if (lungeTrail != null) lungeTrail.emitting = false;
+            if (lungeTrail != null) lungeTrail.emitting = false;
+            if (shieldSphereVisual != null) shieldSphereVisual.SetActive(false);
             lastMicroDashTime = -10f;
             lastAttackEndTime = Time.time;
             currentAttack = BossAttackType.None;
