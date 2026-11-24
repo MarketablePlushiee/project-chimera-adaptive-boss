@@ -131,6 +131,7 @@ GameObject:
   - component: {fileID: 5073525}
   - component: {fileID: 5073524}
   - component: {fileID: 5073523}
+  - component: {fileID: 5073526}
   m_Layer: 7
   m_Name: Player
   m_TagString: Player
@@ -188,6 +189,7 @@ MonoBehaviour:
   perfectParryWindow: 0.24
   guardDamageReduction: 0.7
   parryStaggerToAttacker: 35
+  staggerDuration: 1
   visualRoot: {fileID: 992815959}
   weaponPivot: {fileID: 821130576}
   shieldVisual: {fileID: 490087520}
@@ -246,6 +248,24 @@ CharacterController:
   m_SkinWidth: 0.08
   m_MinMoveDistance: 0.001
   m_Center: {x: 0, y: 1, z: 0}
+--- !u!114 &5073526
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5073521}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7526289b2bc47a84e9f47c46fe1b1867, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Chimera.Player.TrainingBotController
+  archetype: 2
+  randomizeArchetypeOnReset: 1
+  bossFSM: {fileID: 457775767}
+  bossHealth: {fileID: 457775768}
+  minReactionDelay: 0.08
+  maxReactionDelay: 0.2
 --- !u!1 &38041046
 GameObject:
   m_ObjectHideFlags: 0
@@ -754,8 +774,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0497fd7394f6eb44e8d966cae41bb167, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Chimera.Core.HealthComponent
-  maxHP: 300
-  maxPosture: 120
+  maxHP: 500
+  maxPosture: 150
   postureDecayPerSecond: 10
   postureDecayDelay: 2.5
   currentHP: 0
@@ -2015,6 +2035,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1424745036}
+  - component: {fileID: 1424745037}
   m_Layer: 6
   m_Name: BossArena_Unit
   m_TagString: Untagged
@@ -2042,6 +2063,26 @@ Transform:
   - {fileID: 457775766}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1424745037
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1424745035}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7ee7a7c66b8d8a94aa92ab477f495dc4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Chimera.Telemetry.PlayerBehaviorProfiler
+  playerController: {fileID: 5073523}
+  playerHealth: {fileID: 5073524}
+  bossFSM: {fileID: 457775767}
+  windowDuration: 12
+  sampleInterval: 0.1
+  arenaDiameter: 20
+  expectedMaxDashesPerWindow: 6
+  showTelemetryOverlay: 1
 --- !u!1 &1461087321
 GameObject:
   m_ObjectHideFlags: 0
