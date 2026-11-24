@@ -601,5 +601,20 @@ namespace Chimera.Player
 
             health.ResetStats();
         }
+
+        private void LateUpdate()
+        {
+            Vector3 localPos = transform.localPosition;
+            Vector2 flat = new Vector2(localPos.x, localPos.z);
+            const float maxArenaRadius = 8.8f;
+
+            if (flat.sqrMagnitude > maxArenaRadius * maxArenaRadius)
+            {
+                flat = flat.normalized * maxArenaRadius;
+                controller.enabled = false;
+                transform.localPosition = new Vector3(flat.x, localPos.y, flat.y);
+                controller.enabled = true;
+            }
+        }
     }
 }

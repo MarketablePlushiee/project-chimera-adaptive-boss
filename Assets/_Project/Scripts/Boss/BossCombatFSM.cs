@@ -131,6 +131,7 @@ namespace Chimera.Boss
         public BossMoveCommand CurrentMoveCommand => currentMoveCommand;
         public bool IsPhase2 => isPhase2;
         public bool IsBusy => currentState != BossFSMState.Locomotion;
+        public bool AutonomousTestMode { get => autonomousTestMode; set => autonomousTestMode = value; }
         public Vector3 PredictedAimDirection => predictedAimDirection;
         public float DodgeLateralBias { get => externalDodgeLateralBias; set => externalDodgeLateralBias = Mathf.Clamp(value, -1f, 1f); }
         public float ShockwaveRadius => shockwaveRadius;
@@ -816,6 +817,21 @@ namespace Chimera.Boss
 
             health.ResetStats();
             ChangeState(BossFSMState.Locomotion);
+        }
+
+        private void LateUpdate()
+        {
+            Vector3 localPos = transform.localPosition;
+            Vector2 flat = new Vector2(localPos.x, localPos.z);
+            const float maxArenaRadius = 8.6f;
+
+            if (flat.sqrMagnitude > maxArenaRadius * maxArenaRadius)
+            {
+                flat = flat.normalized * maxArenaRadius;
+                controller.enabled = false;
+                transform.localPosition = new Vector3(flat.x, localPos.y, flat.y);
+                controller.enabled = true;
+            }
         }
     }
 }

@@ -1,0 +1,29 @@
+{
+    "ChimeraBoss": {
+        "checkpoints": [
+            {
+                "steps": 62904,
+                "file_path": "results\\ChimeraBoss_v2\\ChimeraBoss\\ChimeraBoss-62904.onnx",
+                "reward": -0.51680006980896,
+                "creation_time": 1795560068.0905776,
+                "auxillary_file_paths": [
+                    "results\\ChimeraBoss_v2\\ChimeraBoss\\ChimeraBoss-62904.pt"
+                ]
+            }
+        ],
+        "final_checkpoint": {
+            "steps": 62904,
+            "file_path": "results\\ChimeraBoss_v2\\ChimeraBoss.onnx",
+            "reward": -0.51680006980896,
+            "creation_time": 1795560068.0905776,
+            "auxillary_file_paths": [
+                "results\\ChimeraBoss_v2\\ChimeraBoss\\ChimeraBoss-62904.pt"
+            ]
+        }
+    },
+    "metadata": {
+        "stats_format_version": "0.3.0",
+        "mlagents_version": "1.1.0",
+        "torch_version": "2.2.2+cpu"
+    }
+}

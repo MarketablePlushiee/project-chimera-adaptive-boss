@@ -1,0 +1,38 @@
+{
+    "metadata": {
+        "stats_format_version": "0.3.0",
+        "mlagents_version": "1.1.0",
+        "torch_version": "2.2.2+cpu"
+    },
+    "ChimeraBoss": {
+        "checkpoints": [
+            {
+                "steps": 499982,
+                "file_path": "results\\ChimeraBoss_v1\\ChimeraBoss\\ChimeraBoss-499982.onnx",
+                "reward": null,
+                "creation_time": 1795557456.0322287,
+                "auxillary_file_paths": [
+                    "results\\ChimeraBoss_v1\\ChimeraBoss\\ChimeraBoss-499982.pt"
+                ]
+            },
+            {
+                "steps": 501019,
+                "file_path": "results\\ChimeraBoss_v1\\ChimeraBoss\\ChimeraBoss-501019.onnx",
+                "reward": 3.0286000251770018,
+                "creation_time": 1795557458.3179426,
+                "auxillary_file_paths": [
+                    "results\\ChimeraBoss_v1\\ChimeraBoss\\ChimeraBoss-501019.pt"
+                ]
+            }
+        ],
+        "final_checkpoint": {
+            "steps": 501019,
+            "file_path": "results\\ChimeraBoss_v1\\ChimeraBoss.onnx",
+            "reward": 3.0286000251770018,
+            "creation_time": 1795557458.3179426,
+            "auxillary_file_paths": [
+                "results\\ChimeraBoss_v1\\ChimeraBoss\\ChimeraBoss-501019.pt"
+            ]
+        }
+    }
+}
