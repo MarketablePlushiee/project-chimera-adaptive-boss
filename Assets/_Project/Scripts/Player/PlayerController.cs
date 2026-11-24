@@ -6,9 +6,9 @@ using Chimera.Core;
 
 namespace Chimera.Player
 {
-    /// Controlador completo del Jugador en 3D (vista táctica).
-    /// Soporta tanto input humano (Teclado + Mouse) como control virtual por Bots de entrenamiento.
-    /// Emite eventos limpios para alimentar al PlayerBehaviorProfiler (Capa 1 de IA).
+    // Controlador completo del Jugador en 3D (vista táctica).
+    // Soporta tanto input humano (Teclado + Mouse) como control virtual por Bots de entrenamiento.
+    // Emite eventos limpios para alimentar al PlayerBehaviorProfiler (Capa 1 de IA).
     [RequireComponent(typeof(CharacterController))]
     [RequireComponent(typeof(HealthComponent))]
     public class PlayerController : MonoBehaviour
@@ -42,15 +42,16 @@ namespace Chimera.Player
 
         [Header("Escudo y Parry Reactivo")]
         [SerializeField] private float perfectParryWindow = 0.24f;
-        [SerializeField] private float guardDamageReduction = 0.70f; // Recibe solo 30% de daño al bloquear normal
+        [SerializeField] private float guardDamageReduction = 0.70f;
         [SerializeField] private float parryStaggerToAttacker = 35f;
 
-        [Header("Referencias Visuales (Primitivas)")]
+        [Header("Referencias Visuales y VFX")]
         [SerializeField] private Transform weaponPivot;
         [SerializeField] private GameObject shieldVisual;
         [SerializeField] private Renderer bodyRenderer;
         [SerializeField] private Material normalBodyMaterial;
         [SerializeField] private Material dashBodyMaterial;
+        [SerializeField] private Material vfxMaterial;
 
         [Header("Capas y Referencias de Escena")]
         [SerializeField] private LayerMask bossLayer;
@@ -59,8 +60,8 @@ namespace Chimera.Player
 
         private CharacterController controller;
         private HealthComponent health;
+        private TrailRenderer dashTrail;
 
-        // Estado interno
         private Vector3 moveInput;
         private Vector3 aimDirection = Vector3.forward;
         private Vector3 currentVelocity;
@@ -73,16 +74,14 @@ namespace Chimera.Player
         private float guardStartTime = -10f;
         private float stunEndTime = -10f;
 
-        // Inputs virtuales (usados cuando isBotControlled == true)
         private Vector2 botMoveAxis;
         private Vector3 botAimPoint;
         private bool botGuardHeld;
 
-        // Eventos de Telemetría para PlayerBehaviorProfiler (Capa 1)
-        public event Action<Vector3> OnPlayerDash;          // Dirección del dash
+        public event Action<Vector3> OnPlayerDash;
         public event Action OnPlayerMeleeAttack;
         public event Action OnPlayerRangedAttack;
-        public event Action<bool> OnPlayerParryAttempt;     // true = parry exitoso, false = solo levantó escudo
+        public event Action<bool> OnPlayerParryAttempt;
 
         public Vector3 Velocity => currentVelocity;
         public Vector3 AimDirection => aimDirection;
@@ -100,22 +99,32 @@ namespace Chimera.Player
                 mainCamera = Camera.main;
             }
 
-            // Conectar reglas de Parry y Guardia al componente de salud
             health.ParryEvaluator = EvaluateParry;
             health.GuardDamageMultiplier = EvaluateGuardMultiplier;
             health.OnPostureBroken += HandlePostureBroken;
+            health.OnParriedSuccess += HandleParriedSuccessVFX;
 
             if (shieldVisual != null)
             {
                 shieldVisual.SetActive(false);
             }
+
+            // Configura estela visual para el Dash
+            dashTrail = CombatVFX.AttachTrail(
+                transform,
+                vfxMaterial,
+                new Color(0.2f, 1f, 0.5f, 0.9f),
+                new Color(0f, 0.8f, 1f, 0f),
+                startWidth: 0.65f,
+                trailTime: 0.22f,
+                startEmitting: false
+            );
         }
 
         private void Update()
         {
             if (health.IsDead) return;
 
-            // Si tiene postura rota (aturdido), no puede actuar brevemente
             if (Time.time < stunEndTime)
             {
                 currentVelocity = Vector3.zero;
@@ -134,14 +143,12 @@ namespace Chimera.Player
             HandleMovementAndRotation();
         }
 
-        /// Lee entradas de teclado y mouse usando el nuevo Input System de Unity 6.
         private void ReadHumanInputs()
         {
             Keyboard kb = Keyboard.current;
             Mouse mouse = Mouse.current;
             if (kb == null || mouse == null) return;
 
-            // 1. Movimiento WASD / Flechas
             float h = 0f;
             float v = 0f;
             if (kb.aKey.isPressed || kb.leftArrowKey.isPressed) h -= 1f;
@@ -151,7 +158,6 @@ namespace Chimera.Player
 
             moveInput = new Vector3(h, 0f, v).normalized;
 
-            // 2. Apuntado proyectando rayo del mouse sobre el plano horizontal Y = 1.0
             if (mainCamera != null)
             {
                 Vector2 screenPos = mouse.position.ReadValue();
@@ -170,23 +176,18 @@ namespace Chimera.Player
                 }
             }
 
-            // 3. Guardia / Parry (Clic Derecho)
-            bool rightPressed = mouse.rightButton.isPressed;
-            SetGuardState(rightPressed);
+            SetGuardState(mouse.rightButton.isPressed);
 
-            // 4. Dash Direccional (Barra Espaciadora)
             if (kb.spaceKey.wasPressedThisFrame)
             {
                 TryDash();
             }
 
-            // 5. Ataque Cuerpo a Cuerpo (Clic Izquierdo)
             if (mouse.leftButton.wasPressedThisFrame)
             {
                 TryMeleeAttack();
             }
 
-            // 6. Disparo a Distancia (Tecla E o Q)
             if (kb.eKey.wasPressedThisFrame || kb.qKey.wasPressedThisFrame)
             {
                 TryRangedAttack();
@@ -209,20 +210,18 @@ namespace Chimera.Player
         {
             if (isDashing) return;
 
-            // Rotación suave hacia la dirección de apuntado
             if (aimDirection.sqrMagnitude > 0.001f)
             {
                 Quaternion targetRot = Quaternion.LookRotation(aimDirection);
                 transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, rotationSpeed * Time.deltaTime);
             }
 
-            // Penalización de velocidad si está bloqueando o cargando un disparo
             float speedMultiplier = 1f;
             if (isGuarding) speedMultiplier = 0.45f;
             else if (isChargingShot) speedMultiplier = 0.35f;
 
             Vector3 velocity = moveInput * (moveSpeed * speedMultiplier);
-            velocity.y = -9.81f; // Gravedad simple para mantener pegado al suelo
+            velocity.y = -9.81f;
 
             controller.Move(velocity * Time.deltaTime);
             currentVelocity = new Vector3(velocity.x, 0f, velocity.z);
@@ -244,12 +243,22 @@ namespace Chimera.Player
             SetGuardState(false);
             lastDashTime = Time.time;
 
-            // Activa i-frames y feedback visual
             health.SetInvulnerable(true);
             if (bodyRenderer != null && dashBodyMaterial != null)
             {
                 bodyRenderer.material = dashBodyMaterial;
             }
+
+            if (dashTrail != null) dashTrail.emitting = true;
+            CombatVFX.SpawnImpactBurst(
+                transform.position + Vector3.up * 0.8f,
+                vfxMaterial,
+                new Color(0.2f, 1f, 0.5f, 1f),
+                new Color(0f, 0.85f, 1f, 0f),
+                count: 14,
+                maxSpeed: 7f,
+                size: 0.22f
+            );
 
             OnPlayerDash?.Invoke(dashDir);
 
@@ -265,6 +274,7 @@ namespace Chimera.Player
                 yield return null;
             }
 
+            if (dashTrail != null) dashTrail.emitting = false;
             health.SetInvulnerable(false);
             if (bodyRenderer != null && normalBodyMaterial != null)
             {
@@ -284,7 +294,6 @@ namespace Chimera.Player
 
             StartCoroutine(SwingWeaponVisualRoutine());
 
-            // Detección de impacto en esfera frontal
             Vector3 hitCenter = transform.position + Vector3.up * 1.0f + aimDirection * (meleeRange * 0.65f);
             Collider[] hits = Physics.OverlapSphere(hitCenter, meleeRadius, bossLayer);
 
@@ -304,6 +313,16 @@ namespace Chimera.Player
                         canBeParried = false
                     };
                     bossHealth.TakeDamage(info);
+
+                    CombatVFX.SpawnImpactBurst(
+                        hitCenter,
+                        vfxMaterial,
+                        new Color(0.2f, 1f, 0.5f, 1f),
+                        new Color(1f, 1f, 1f, 0f),
+                        count: 12,
+                        maxSpeed: 6f,
+                        size: 0.2f
+                    );
                     break;
                 }
             }
@@ -315,7 +334,6 @@ namespace Chimera.Player
         {
             if (weaponPivot == null) yield break;
 
-            // Barrido visual rápido de la espada de derecha a izquierda
             float duration = 0.18f;
             float elapsed = 0f;
             while (elapsed < duration)
@@ -355,6 +373,15 @@ namespace Chimera.Player
                     : transform.position + Vector3.up * 1.1f + aimDirection * 0.9f;
 
                 GameObject projObj = Instantiate(projectilePrefab, spawnPos, Quaternion.LookRotation(aimDirection));
+                CombatVFX.AttachTrail(
+                projObj.transform,
+                vfxMaterial,
+                    new Color(0.35f, 1f, 0.2f, 1f),
+                    new Color(0f, 0.95f, 1f, 0f),
+                    startWidth: 0.34f,
+                    trailTime: 0.18f
+                );
+
                 Projectile proj = projObj.GetComponent<Projectile>();
                 if (proj != null)
                 {
@@ -365,7 +392,8 @@ namespace Chimera.Player
                         rangedPostureDamage,
                         gameObject,
                         bossLayer,
-                        arenaWallLayer
+                        arenaWallLayer,
+                        vfxMaterial
                     );
                 }
             }
@@ -386,7 +414,6 @@ namespace Chimera.Player
             {
                 shieldVisual.SetActive(isGuarding);
 
-                // Durante la ventana de Parry perfecto el escudo se ve ligeramente más ancho/reactivo
                 bool inParryWindow = isGuarding && (Time.time - guardStartTime <= perfectParryWindow);
                 shieldVisual.transform.localScale = inParryWindow
                     ? new Vector3(0.95f, 0.95f, 0.16f)
@@ -394,7 +421,6 @@ namespace Chimera.Player
             }
         }
 
-        /// Evalúa si un impacto entrante ocurre dentro de la ventana de Parry perfecto.
         private bool EvaluateParry(DamageInfo info)
         {
             if (!isGuarding) return false;
@@ -404,7 +430,6 @@ namespace Chimera.Player
             {
                 OnPlayerParryAttempt?.Invoke(true);
 
-                // Si el golpe fue cuerpo a cuerpo del Jefe, le inflige alto daño de postura
                 if (!info.isProjectile && info.attacker != null)
                 {
                     HealthComponent attackerHealth = info.attacker.GetComponent<HealthComponent>();
@@ -419,6 +444,16 @@ namespace Chimera.Player
             return false;
         }
 
+        // Genera chispas brillantes frente al escudo cuando logra un Parry perfecto
+        private void HandleParriedSuccessVFX(DamageInfo info)
+        {
+            Vector3 sparkPos = shieldVisual != null
+                ? shieldVisual.transform.position
+                : transform.position + Vector3.up * 1.1f + aimDirection * 0.6f;
+
+            CombatVFX.SpawnParrySparks(sparkPos, vfxMaterial);
+        }
+
         private float EvaluateGuardMultiplier(DamageInfo info)
         {
             return isGuarding ? (1f - guardDamageReduction) : 1f;
@@ -430,7 +465,6 @@ namespace Chimera.Player
             stunEndTime = Time.time + 1.0f;
         }
 
-        /// Interfaz limpia para que los Bots de Entrenamiento (Fase 4) controlen al jugador.
         public void SetBotControls(Vector2 moveAxis, Vector3 aimWorldPoint, bool guardHeld)
         {
             botMoveAxis = moveAxis;
@@ -449,6 +483,7 @@ namespace Chimera.Player
             lastMeleeTime = -10f;
             lastRangedTime = -10f;
 
+            if (dashTrail != null) dashTrail.emitting = false;
             if (shieldVisual != null) shieldVisual.SetActive(false);
             if (bodyRenderer != null && normalBodyMaterial != null) bodyRenderer.material = normalBodyMaterial;
 

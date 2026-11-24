@@ -5,17 +5,15 @@ using Chimera.Core;
 
 namespace Chimera.Boss
 {
-    // Estados deterministas de la Capa 3 (Ejecución de Combate)
     public enum BossFSMState
     {
-        Locomotion,     // Libre para moverse, flanquear o iniciar un ataque
-        Telegraph,      // Señal visual activa en suelo/arma antes del impacto
-        ActiveHitbox,   // Ventana física donde se aplica daño o desplazamiento
-        Recovery,       // Pausa post-ataque donde el jugador puede castigar
-        Staggered       // Postura rota: aturdido y vulnerable a daño extra
+        Locomotion,
+        Telegraph,
+        ActiveHitbox,
+        Recovery,
+        Staggered
     }
 
-    // Acciones tácticas de posicionamiento (decididas por la Capa 2 o bot de prueba)
     public enum BossMoveCommand
     {
         Hold = 0,
@@ -26,19 +24,17 @@ namespace Chimera.Boss
         MicroDash = 5
     }
 
-    // Los 4 contra-ataques especializados del Jefe
     public enum BossAttackType
     {
         None = 0,
-        GapCloserLunge = 1,     // Embestida: castiga distancia larga / disparos
-        ShockwaveRing = 2,      // Onda 360°: castiga abuso de melee continuo
-        LeadShotVolley = 3,     // Ráfaga predictiva: castiga esquive lateral repetitivo
-        DelayedParrySlam = 4    // Golpe retardado con amague: castiga spam de parry
+        GapCloserLunge = 1,
+        ShockwaveRing = 2,
+        LeadShotVolley = 3,
+        DelayedParrySlam = 4
     }
 
     // Capa 3 de Project Chimera: Máquina de Estados Determinista del Jefe.
-    // Recibe órdenes de alto nivel (posicionamiento y contra-ataque) y las ejecuta
-    // con telegrafías visuales claras, ventanas de recuperación y transición a Fase 2.
+    // Ejecuta posicionamiento y contra-ataques con telegrafías claras, VFX y escalado en Fase 2.
     [RequireComponent(typeof(CharacterController))]
     [RequireComponent(typeof(HealthComponent))]
     public class BossCombatFSM : MonoBehaviour
@@ -54,10 +50,11 @@ namespace Chimera.Boss
         [SerializeField] private LayerMask playerLayer;
         [SerializeField] private LayerMask arenaWallLayer;
 
-        [Header("Referencias Visuales (Primitivas)")]
+        [Header("Referencias Visuales y VFX")]
         [SerializeField] private Renderer coreRenderer;
         [SerializeField] private Material phase1CoreMaterial;
         [SerializeField] private Material phase2CoreMaterial;
+        [SerializeField] private Material vfxMaterial;
         [SerializeField] private Transform hammerArmPivot;
         [SerializeField] private Transform visualRoot;
 
@@ -75,27 +72,23 @@ namespace Chimera.Boss
         [SerializeField] private float microDashCooldown = 2.2f;
 
         [Header("Parámetros de los 4 Contra-ataques")]
-        // 1. Embestida (Gap-Closer Lunge)
         [SerializeField] private float lungeTelegraphTime = 0.55f;
         [SerializeField] private float lungeSpeed = 24f;
         [SerializeField] private float lungeDuration = 0.30f;
         [SerializeField] private float lungeDamage = 24f;
         [SerializeField] private float lungePostureDamage = 25f;
 
-        // 2. Onda Expansiva 360° (Shockwave Ring)
         [SerializeField] private float shockwaveTelegraphTime = 0.65f;
         [SerializeField] private float shockwaveRadius = 4.25f;
         [SerializeField] private float shockwaveDamage = 22f;
         [SerializeField] private float shockwavePostureDamage = 30f;
 
-        // 3. Ráfaga Predictiva (Lead-Shot Volley)
         [SerializeField] private float volleyTelegraphTime = 0.50f;
         [SerializeField] private float volleyProjectileSpeed = 19f;
         [SerializeField] private float volleyDamage = 15f;
         [SerializeField] private float volleyPostureDamage = 15f;
         [SerializeField] private float volleySpreadAngle = 18f;
 
-        // 4. Golpe Retardado / Amague (Anti-Parry Delayed Slam)
         [SerializeField] private float slamFeintHoldTime = 0.50f;
         [SerializeField] private float slamFinalStrikeDelay = 0.45f;
         [SerializeField] private float slamRadius = 2.1f;
@@ -111,6 +104,7 @@ namespace Chimera.Boss
 
         private CharacterController controller;
         private HealthComponent health;
+        private TrailRenderer lungeTrail;
 
         private BossFSMState currentState = BossFSMState.Locomotion;
         private BossAttackType currentAttack = BossAttackType.None;
@@ -122,18 +116,15 @@ namespace Chimera.Boss
         private float lastAttackEndTime = -10f;
         private int autonomousCycleIndex;
 
-        // Sesgo lateral de esquive recibido desde PlayerBehaviorProfiler (-1 izq, +1 der)
         private float externalDodgeLateralBias;
         private Vector3 predictedAimDirection = Vector3.forward;
 
-        // Eventos para telemetría, recompensas RL y HUD
         public event Action<BossFSMState> OnStateChanged;
         public event Action<BossAttackType> OnAttackStarted;
-        public event Action<BossAttackType, bool> OnAttackCompleted; // (tipo, conectó daño)
+        public event Action<BossAttackType, bool> OnAttackCompleted;
         public event Action OnPhase2Entered;
         public event Action OnBossStaggered;
 
-        // Propiedades de lectura para BossBrainAgent, HUD y Gizmos
         public BossFSMState CurrentState => currentState;
         public BossAttackType CurrentAttack => currentAttack;
         public BossMoveCommand CurrentMoveCommand => currentMoveCommand;
@@ -150,8 +141,21 @@ namespace Chimera.Boss
 
             health.OnHealthChanged += HandleHealthChanged;
             health.OnPostureBroken += HandlePostureBroken;
+            health.OnHealthChanged += HandleHealthChanged;
+            health.OnPostureBroken += HandlePostureBroken;
+            health.OnDeath += HandleBossDeath;
 
             HideAllTelegraphs();
+
+            lungeTrail = CombatVFX.AttachTrail(
+                transform,
+                vfxMaterial,
+                new Color(1f, 0.45f, 0f, 0.95f),
+                new Color(1f, 0.08f, 0.25f, 0f),
+                startWidth: 1.0f,
+                trailTime: 0.28f,
+                startEmitting: false
+            );
         }
 
         private void Start()
@@ -163,7 +167,6 @@ namespace Chimera.Boss
         {
             if (health.IsDead) return;
 
-            // En modo prueba autónoma, el jefe decide movimientos y cicla los 4 ataques
             if (autonomousTestMode && currentState == BossFSMState.Locomotion)
             {
                 RunAutonomousTestBehavior();
@@ -175,7 +178,6 @@ namespace Chimera.Boss
             }
         }
 
-        // Comportamiento autónomo simple solo para validar mecánicas en Fase 3
         private void RunAutonomousTestBehavior()
         {
             if (playerTarget == null) return;
@@ -191,7 +193,6 @@ namespace Chimera.Boss
             }
         }
 
-        // Recibe orden de posicionamiento desde Capa 2 (ML-Agents)
         public void SetMoveCommand(BossMoveCommand command)
         {
             if (currentState != BossFSMState.Locomotion) return;
@@ -206,7 +207,6 @@ namespace Chimera.Boss
             }
         }
 
-        // Recibe orden de contra-ataque desde Capa 2 (ML-Agents)
         public bool TryExecuteAttack(BossAttackType attackType)
         {
             if (attackType == BossAttackType.None || currentState != BossFSMState.Locomotion || health.IsDead)
@@ -224,7 +224,6 @@ namespace Chimera.Boss
             float distance = toPlayer.magnitude;
             Vector3 dirToPlayer = distance > 0.01f ? toPlayer.normalized : transform.forward;
 
-            // Encarar siempre al jugador suavemente
             Quaternion targetRot = Quaternion.LookRotation(dirToPlayer);
             transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, rotationSpeed * Time.deltaTime);
 
@@ -265,7 +264,6 @@ namespace Chimera.Boss
             Vector3 toPlayer = (FlatPos(playerTarget.position) - FlatPos(transform.position)).normalized;
             Vector3 rightDir = Vector3.Cross(Vector3.up, toPlayer).normalized;
 
-            // Esquiva hacia el lado opuesto al sesgo del jugador o aleatorio si es neutro
             float side = Mathf.Abs(externalDodgeLateralBias) > 0.15f
                 ? -Mathf.Sign(externalDodgeLateralBias)
                 : (UnityEngine.Random.value > 0.5f ? 1f : -1f);
@@ -276,6 +274,8 @@ namespace Chimera.Boss
         private IEnumerator MicroDashRoutine(Vector3 dashDir)
         {
             isMicroDashing = true;
+            if (lungeTrail != null) lungeTrail.emitting = true;
+
             float elapsed = 0f;
             while (elapsed < microDashDuration)
             {
@@ -285,10 +285,11 @@ namespace Chimera.Boss
                 elapsed += Time.deltaTime;
                 yield return null;
             }
+
+            if (lungeTrail != null) lungeTrail.emitting = false;
             isMicroDashing = false;
         }
 
-        // Secuencia completa determinista: Telegraph -> ActiveHitbox -> (Combo Fase 2) -> Recovery
         private IEnumerator ExecuteAttackSequence(BossAttackType attackType, bool isComboFollowUp)
         {
             currentAttack = attackType;
@@ -309,7 +310,7 @@ namespace Chimera.Boss
 
                 case BossAttackType.LeadShotVolley:
                     yield return StartCoroutine(RoutineLeadShotVolley(speedScale));
-                    hitLanded = true; // El disparo se considera ejecutado correctamente
+                    hitLanded = true;
                     break;
 
                 case BossAttackType.DelayedParrySlam:
@@ -320,7 +321,6 @@ namespace Chimera.Boss
             HideAllTelegraphs();
             OnAttackCompleted?.Invoke(attackType, hitLanded);
 
-            // En Fase 2, el jefe encadena un segundo ataque rápido si este fue el primero del combo
             if (isPhase2 && !isComboFollowUp && currentState != BossFSMState.Staggered && !health.IsDead)
             {
                 BossAttackType followUp = ChoosePhase2ComboFollowUp(attackType);
@@ -329,7 +329,6 @@ namespace Chimera.Boss
                 yield break;
             }
 
-            // Fase de Recuperación (ventana de castigo para el jugador)
             if (currentState != BossFSMState.Staggered && !health.IsDead)
             {
                 ChangeState(BossFSMState.Recovery);
@@ -345,13 +344,12 @@ namespace Chimera.Boss
             }
         }
 
-        // 1. EMBESTIDA (Gap-Closer Lunge): Castiga jugadores a larga distancia
+        // 1. EMBESTIDA (Gap-Closer Lunge)
         private IEnumerator RoutineGapCloserLunge(float speedScale, Action<bool> onResult)
         {
             ChangeState(BossFSMState.Telegraph);
             if (telegraphLunge != null) telegraphLunge.SetActive(true);
 
-            // Apunta al jugador durante la primera mitad de la telegrafía y luego fija dirección
             float elapsed = 0f;
             float duration = lungeTelegraphTime / speedScale;
             Vector3 lockedDir = transform.forward;
@@ -374,6 +372,17 @@ namespace Chimera.Boss
             if (telegraphLunge != null) telegraphLunge.SetActive(false);
             ChangeState(BossFSMState.ActiveHitbox);
 
+            if (lungeTrail != null) lungeTrail.emitting = true;
+            CombatVFX.SpawnImpactBurst(
+                transform.position + Vector3.up * 0.9f,
+                vfxMaterial,
+                new Color(1f, 0.5f, 0f, 1f),
+                new Color(1f, 0.1f, 0.2f, 0f),
+                count: 20,
+                maxSpeed: 10f,
+                size: 0.32f
+            );
+
             bool dealtDamage = false;
             float dashElapsed = 0f;
             while (dashElapsed < lungeDuration)
@@ -391,10 +400,11 @@ namespace Chimera.Boss
                 yield return null;
             }
 
+            if (lungeTrail != null) lungeTrail.emitting = false;
             onResult?.Invoke(dealtDamage);
         }
 
-        // 2. ONDA EXPANSIVA 360° (Shockwave Ring): Castiga abuso de melee continuo
+        // 2. ONDA EXPANSIVA 360° (Shockwave Ring)
         private IEnumerator RoutineShockwaveRing(float speedScale, Action<bool> onResult)
         {
             ChangeState(BossFSMState.Telegraph);
@@ -404,7 +414,6 @@ namespace Chimera.Boss
                 telegraphShockwave.transform.localScale = new Vector3(shockwaveRadius * 2f, 0.01f, shockwaveRadius * 2f);
             }
 
-            // Eleva ligeramente el núcleo visual como advertencia
             if (visualRoot != null) visualRoot.localPosition = new Vector3(0f, 0.35f, 0f);
 
             yield return new WaitForSeconds(shockwaveTelegraphTime / speedScale);
@@ -413,18 +422,21 @@ namespace Chimera.Boss
             if (telegraphShockwave != null) telegraphShockwave.SetActive(false);
 
             ChangeState(BossFSMState.ActiveHitbox);
+
+            // Dispara la onda expansiva visual desde el centro del jefe hasta el radio exterior
+            CombatVFX.SpawnShockwaveWave(transform.position, shockwaveRadius, 0.26f, vfxMaterial);
+
             Vector3 radialDir = playerTarget != null
                 ? (FlatPos(playerTarget.position) - FlatPos(transform.position)).normalized
                 : transform.forward;
 
-            // La onda expansiva obliga a usar Dash i-frames o salir del radio (no se puede parrear en seco)
             bool dealtDamage = CheckSphereHit(transform.position + Vector3.up * 0.8f, shockwaveRadius, shockwaveDamage, shockwavePostureDamage, radialDir, canBeParried: false);
-            yield return new WaitForSeconds(0.15f);
+            yield return new WaitForSeconds(0.18f);
 
             onResult?.Invoke(dealtDamage);
         }
 
-        // 3. RÁFAGA PREDICTIVA (Lead-Shot Volley): Sesga proyectiles hacia dodgeLateralBias
+        // 3. RÁFAGA PREDICTIVA (Lead-Shot Volley): 3 proyectiles en Fase 1, 5 proyectiles en Fase 2
         private IEnumerator RoutineLeadShotVolley(float speedScale)
         {
             ChangeState(BossFSMState.Telegraph);
@@ -447,18 +459,41 @@ namespace Chimera.Boss
             if (telegraphVolley != null) telegraphVolley.SetActive(false);
             ChangeState(BossFSMState.ActiveHitbox);
 
-            // Dispara abanico de 3 proyectiles centrados en la dirección predicha
             if (bossProjectilePrefab != null)
             {
                 Vector3 spawnPos = cannonFirePoint != null
                     ? cannonFirePoint.position
                     : transform.position + Vector3.up * 1.2f + predictedAimDirection * 1.1f;
 
-                float[] angles = { -volleySpreadAngle, 0f, volleySpreadAngle };
+                CombatVFX.SpawnImpactBurst(
+                    spawnPos,
+                    vfxMaterial,
+                    new Color(1f, 0.6f, 0f, 1f),
+                    new Color(1f, 0.1f, 0.2f, 0f),
+                    count: 16,
+                    maxSpeed: 8f,
+                    size: 0.25f
+                );
+
+                // En Fase 2 dispara un abanico espectacular de 5 proyectiles en vez de 3
+                float[] angles = isPhase2
+                    ? new[] { -volleySpreadAngle * 1.4f, -volleySpreadAngle * 0.7f, 0f, volleySpreadAngle * 0.7f, volleySpreadAngle * 1.4f }
+                    : new[] { -volleySpreadAngle, 0f, volleySpreadAngle };
+
                 for (int i = 0; i < angles.Length; i++)
                 {
                     Vector3 shotDir = Quaternion.Euler(0f, angles[i], 0f) * predictedAimDirection;
                     GameObject projObj = Instantiate(bossProjectilePrefab, spawnPos, Quaternion.LookRotation(shotDir));
+
+                    CombatVFX.AttachTrail(
+                        projObj.transform,
+                        vfxMaterial,
+                        isPhase2 ? new Color(1f, 0.1f, 0.3f, 0.95f) : new Color(1f, 0.55f, 0f, 0.95f),
+                        new Color(1f, 0.2f, 0f, 0f),
+                        startWidth: 0.30f,
+                        trailTime: 0.16f
+                    );
+
                     Projectile proj = projObj.GetComponent<Projectile>();
                     if (proj != null)
                     {
@@ -469,7 +504,8 @@ namespace Chimera.Boss
                             volleyPostureDamage,
                             gameObject,
                             playerLayer,
-                            arenaWallLayer
+                            arenaWallLayer,
+                            vfxMaterial
                         );
                     }
                 }
@@ -478,13 +514,12 @@ namespace Chimera.Boss
             yield return new WaitForSeconds(0.15f);
         }
 
-        // 4. GOLPE RETARDADO / AMAGUE (Anti-Parry Delayed Slam): Castiga spam de parry
+        // 4. GOLPE RETARDADO / AMAGUE (Anti-Parry Delayed Slam)
         private IEnumerator RoutineDelayedParrySlam(float speedScale, Action<bool> onResult)
         {
             ChangeState(BossFSMState.Telegraph);
             if (telegraphDelayedSlam != null) telegraphDelayedSlam.SetActive(true);
 
-            // Paso A: Levanta el brazo martillo rápido (amague inicial que provoca parry prematuro)
             if (hammerArmPivot != null) hammerArmPivot.localRotation = Quaternion.Euler(-75f, 0f, 0f);
 
             float feintElapsed = 0f;
@@ -503,17 +538,25 @@ namespace Chimera.Boss
                 yield return null;
             }
 
-            // Paso B: Pausa extra en el aire (cuando el parry prematuro del jugador ya expiró)
             yield return new WaitForSeconds(slamFinalStrikeDelay / speedScale);
 
             if (telegraphDelayedSlam != null) telegraphDelayedSlam.SetActive(false);
             ChangeState(BossFSMState.ActiveHitbox);
 
-            // Baja el brazo martillo de golpe
             if (hammerArmPivot != null) hammerArmPivot.localRotation = Quaternion.Euler(35f, 0f, 0f);
 
-            Vector3 slamCenter = transform.position + Vector3.up * 0.9f + transform.forward * 2.1f;
-            bool dealtDamage = CheckSphereHit(slamCenter, slamRadius, slamDamage, slamPostureDamage, transform.forward, canBeParried: true);
+            Vector3 slamCenter = transform.position + Vector3.up * 0.25f + transform.forward * 2.1f;
+            CombatVFX.SpawnImpactBurst(
+                slamCenter,
+                vfxMaterial,
+                new Color(1f, 0.2f, 0.15f, 1f),
+                new Color(1f, 0.7f, 0.1f, 0f),
+                count: 28,
+                maxSpeed: 11f,
+                size: 0.34f
+            );
+
+            bool dealtDamage = CheckSphereHit(transform.position + Vector3.up * 0.9f + transform.forward * 2.1f, slamRadius, slamDamage, slamPostureDamage, transform.forward, canBeParried: true);
 
             yield return new WaitForSeconds(0.18f);
             if (hammerArmPivot != null) hammerArmPivot.localRotation = Quaternion.identity;
@@ -521,7 +564,6 @@ namespace Chimera.Boss
             onResult?.Invoke(dealtDamage);
         }
 
-        // Calcula el vector de disparo sesgado hacia el lado al que suele esquivar el jugador
         private void UpdatePredictedAimDirection()
         {
             if (playerTarget == null)
@@ -535,7 +577,6 @@ namespace Chimera.Boss
             Vector3 baseDir = dist > 0.01f ? toPlayer.normalized : transform.forward;
             Vector3 rightOfBoss = Vector3.Cross(Vector3.up, baseDir).normalized;
 
-            // Desplaza el punto de mira lateralmente según dodgeLateralBias (-1 a +1)
             float leadOffset = externalDodgeLateralBias * Mathf.Clamp(dist * 0.35f, 1.2f, 4.2f);
             Vector3 predictedTargetPos = FlatPos(playerTarget.position) + rightOfBoss * leadOffset;
 
@@ -545,7 +586,6 @@ namespace Chimera.Boss
 
         private BossAttackType ChoosePhase2ComboFollowUp(BossAttackType firstAttack)
         {
-            // Encadena ataques complementarios en Fase 2
             return firstAttack switch
             {
                 BossAttackType.GapCloserLunge => BossAttackType.DelayedParrySlam,
@@ -586,6 +626,7 @@ namespace Chimera.Boss
             {
                 isPhase2 = true;
                 ApplyPhaseVisuals(true);
+                CombatVFX.SpawnShockwaveWave(transform.position, 5.0f, 0.35f, vfxMaterial);
                 OnPhase2Entered?.Invoke();
             }
         }
@@ -595,10 +636,53 @@ namespace Chimera.Boss
             StopAllCoroutines();
             HideAllTelegraphs();
             isMicroDashing = false;
+            if (lungeTrail != null) lungeTrail.emitting = false;
             if (visualRoot != null) visualRoot.localPosition = Vector3.zero;
             if (hammerArmPivot != null) hammerArmPivot.localRotation = Quaternion.identity;
 
             StartCoroutine(StaggerRoutine());
+        }
+
+        private void HandleBossDeath()
+        {
+            StopAllCoroutines();
+            HideAllTelegraphs();
+            isMicroDashing = false;
+            currentAttack = BossAttackType.None;
+            if (lungeTrail != null) lungeTrail.emitting = false;
+
+            // Estallido final de descarga al quedarse sin vida
+            Vector3 burstPos = coreRenderer != null
+                ? coreRenderer.transform.position
+                : transform.position + Vector3.up * 1.4f;
+
+            CombatVFX.SpawnImpactBurst(
+                burstPos,
+                vfxMaterial,
+                new Color(1f, 1f, 1f, 1f),
+                new Color(0.6f, 0.8f, 1f, 0f),
+                count: 36,
+                maxSpeed: 12f,
+                size: 0.35f
+            );
+
+            // Núcleo blanco apagado (sin emisión)
+            if (coreRenderer != null)
+            {
+                coreRenderer.material.color = new Color(0.92f, 0.94f, 0.96f, 1f);
+                coreRenderer.material.SetColor("_EmissionColor", Color.black);
+            }
+
+            // Cuerpo desplomado e inclinado sobre la arena
+            if (visualRoot != null)
+            {
+                visualRoot.localPosition = new Vector3(0f, -0.55f, 0.25f);
+                visualRoot.localRotation = Quaternion.Euler(58f, 0f, 14f);
+            }
+            if (hammerArmPivot != null)
+            {
+                hammerArmPivot.localRotation = Quaternion.Euler(45f, 0f, 0f);
+            }
         }
 
         private IEnumerator StaggerRoutine()
@@ -607,12 +691,58 @@ namespace Chimera.Boss
             currentAttack = BossAttackType.None;
             OnBossStaggered?.Invoke();
 
-            // Inclinación visual clara de aturdimiento
-            if (visualRoot != null) visualRoot.localRotation = Quaternion.Euler(22f, 0f, 0f);
+            // 1. Estallido inicial de chispas eléctricas al romper la postura
+            Vector3 burstPos = coreRenderer != null
+                ? coreRenderer.transform.position
+                : transform.position + Vector3.up * 1.4f;
 
-            yield return new WaitForSeconds(staggerDuration);
+            CombatVFX.SpawnImpactBurst(
+                burstPos,
+                vfxMaterial,
+                new Color(0.6f, 0.95f, 1f, 1f),
+                new Color(1f, 1f, 1f, 0f),
+                count: 30,
+                maxSpeed: 10f,
+                size: 0.30f
+            );
 
-            if (visualRoot != null) visualRoot.localRotation = Quaternion.identity;
+            // 2. Bucle visual durante el aturdimiento: núcleo pálido parpadeante + cuerpo desplomado temblando
+            float elapsed = 0f;
+            Color paleColor = new Color(0.55f, 0.62f, 0.68f, 1f);
+            Color flickerColor = new Color(0.85f, 0.92f, 1f, 1f);
+
+            while (elapsed < staggerDuration)
+            {
+                float pulse = Mathf.PingPong(elapsed * 12f, 1f);
+
+                // Parpadeo pálido del núcleo energético
+                if (coreRenderer != null)
+                {
+                    Color currentTint = Color.Lerp(paleColor, flickerColor, pulse);
+                    coreRenderer.material.color = currentTint;
+                    coreRenderer.material.SetColor("_EmissionColor", currentTint * Mathf.Lerp(0.15f, 0.9f, pulse));
+                }
+
+                // Inclinación hacia adelante + leve descenso + temblor mecánico
+                if (visualRoot != null)
+                {
+                    float shakeX = Mathf.Sin(elapsed * 55f) * 0.05f;
+                    visualRoot.localPosition = new Vector3(shakeX, -0.22f, 0f);
+                    visualRoot.localRotation = Quaternion.Euler(28f, 0f, 0f);
+                }
+
+                elapsed += Time.deltaTime;
+                yield return null;
+            }
+
+            // 3. Restaurar postura y material energético de la fase actual
+            if (visualRoot != null)
+            {
+                visualRoot.localPosition = Vector3.zero;
+                visualRoot.localRotation = Quaternion.identity;
+            }
+
+            ApplyPhaseVisuals(isPhase2);
 
             if (!health.IsDead)
             {
@@ -646,7 +776,6 @@ namespace Chimera.Boss
 
         private Vector3 FlatPos(Vector3 pos) => new Vector3(pos.x, 0f, pos.z);
 
-        // Reinicia completamente al Jefe al iniciar un nuevo episodio de entrenamiento
         public void ResetBossState(Vector3 localStartPos)
         {
             StopAllCoroutines();
@@ -654,6 +783,7 @@ namespace Chimera.Boss
 
             isPhase2 = false;
             isMicroDashing = false;
+            if (lungeTrail != null) lungeTrail.emitting = false;
             lastMicroDashTime = -10f;
             lastAttackEndTime = Time.time;
             currentAttack = BossAttackType.None;

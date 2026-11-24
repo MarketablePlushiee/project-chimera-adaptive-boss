@@ -193,6 +193,7 @@ MonoBehaviour:
   bodyRenderer: {fileID: 1597890639}
   normalBodyMaterial: {fileID: 2100000, guid: caa217b07e6476b4290cea804d2635d1, type: 2}
   dashBodyMaterial: {fileID: 2100000, guid: b5382e9291f24034da8819a8f6731a80, type: 2}
+  vfxMaterial: {fileID: 2100000, guid: c3fc5c103f99a1d41af925d1e7f4c006, type: 2}
   bossLayer:
     serializedVersion: 2
     m_Bits: 256
@@ -702,6 +703,7 @@ MonoBehaviour:
   coreRenderer: {fileID: 492215768}
   phase1CoreMaterial: {fileID: 2100000, guid: 9a326aa035f46a640a2ac4553426c0e3, type: 2}
   phase2CoreMaterial: {fileID: 2100000, guid: 7ac9bcec26858334aa2c5f98c2b92b2d, type: 2}
+  vfxMaterial: {fileID: 2100000, guid: c3fc5c103f99a1d41af925d1e7f4c006, type: 2}
   hammerArmPivot: {fileID: 113733066}
   visualRoot: {fileID: 439138529}
   telegraphLunge: {fileID: 1627879845}
