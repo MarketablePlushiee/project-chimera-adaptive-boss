@@ -929,6 +929,10 @@ PrefabInstance:
       propertyPath: m_BehaviorType
       value: 2
       objectReference: {fileID: 0}
+    - target: {fileID: 3948274783147240529, guid: bea696a64ceb410428a1d288fc0a1ac0, type: 3}
+      propertyPath: showTelemetryOverlay
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 4101005432112875886, guid: bea696a64ceb410428a1d288fc0a1ac0, type: 3}
       propertyPath: m_LocalPosition.x
       value: -0
