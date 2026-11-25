@@ -132,10 +132,6 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
-    - target: {fileID: 3948274783147240529, guid: bea696a64ceb410428a1d288fc0a1ac0, type: 3}
-      propertyPath: showTelemetryOverlay
-      value: 0
-      objectReference: {fileID: 0}
     - target: {fileID: 4101005432112875886, guid: bea696a64ceb410428a1d288fc0a1ac0, type: 3}
       propertyPath: m_LocalPosition.x
       value: 70
@@ -182,7 +178,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8409386486296652604, guid: bea696a64ceb410428a1d288fc0a1ac0, type: 3}
       propertyPath: m_IsActive
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -247,7 +243,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8409386486296652604, guid: bea696a64ceb410428a1d288fc0a1ac0, type: 3}
       propertyPath: m_IsActive
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -312,7 +308,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8409386486296652604, guid: bea696a64ceb410428a1d288fc0a1ac0, type: 3}
       propertyPath: m_IsActive
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -531,7 +527,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8409386486296652604, guid: bea696a64ceb410428a1d288fc0a1ac0, type: 3}
       propertyPath: m_IsActive
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -645,7 +641,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8409386486296652604, guid: bea696a64ceb410428a1d288fc0a1ac0, type: 3}
       propertyPath: m_IsActive
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -710,7 +706,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8409386486296652604, guid: bea696a64ceb410428a1d288fc0a1ac0, type: 3}
       propertyPath: m_IsActive
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -902,7 +898,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8409386486296652604, guid: bea696a64ceb410428a1d288fc0a1ac0, type: 3}
       propertyPath: m_IsActive
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -921,6 +917,18 @@ PrefabInstance:
       propertyPath: mainCamera
       value: 
       objectReference: {fileID: 1525246861}
+    - target: {fileID: 2407370022434375093, guid: bea696a64ceb410428a1d288fc0a1ac0, type: 3}
+      propertyPath: isBotControlled
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 2804785941271395315, guid: bea696a64ceb410428a1d288fc0a1ac0, type: 3}
+      propertyPath: m_Model
+      value: 
+      objectReference: {fileID: 5022602860645237092, guid: a25bfa8eb753d5540a6313cd83e29f83, type: 3}
+    - target: {fileID: 2804785941271395315, guid: bea696a64ceb410428a1d288fc0a1ac0, type: 3}
+      propertyPath: m_BehaviorType
+      value: 2
+      objectReference: {fileID: 0}
     - target: {fileID: 4101005432112875886, guid: bea696a64ceb410428a1d288fc0a1ac0, type: 3}
       propertyPath: m_LocalPosition.x
       value: -0
@@ -960,6 +968,14 @@ PrefabInstance:
     - target: {fileID: 4101005432112875886, guid: bea696a64ceb410428a1d288fc0a1ac0, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6951223634733324208, guid: bea696a64ceb410428a1d288fc0a1ac0, type: 3}
+      propertyPath: archetype
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 6951223634733324208, guid: bea696a64ceb410428a1d288fc0a1ac0, type: 3}
+      propertyPath: randomizeArchetypeOnReset
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 8409386486296652604, guid: bea696a64ceb410428a1d288fc0a1ac0, type: 3}
       propertyPath: m_Name

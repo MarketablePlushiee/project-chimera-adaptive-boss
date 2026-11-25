@@ -218,10 +218,10 @@ namespace Chimera.Player
             Vector3 offsetFromCenter = FlatPos(transform.position) - FlatPos(arenaCenter);
             float radius = offsetFromCenter.magnitude;
 
-            if (radius > 8.8f)
+            if (radius > 4.2f)
             {
                 Vector3 inward = -offsetFromCenter.normalized;
-                float weight = Mathf.Clamp01((radius - 8.8f) / 2.2f);
+                float weight = Mathf.Clamp01((radius - 4.2f) / 2.2f);
                 return Vector3.Lerp(desiredDir, inward, weight).normalized;
             }
 

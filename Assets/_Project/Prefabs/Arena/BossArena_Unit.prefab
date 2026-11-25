@@ -488,7 +488,7 @@ MonoBehaviour:
   microDashDuration: 0.25
   microDashCooldown: 1.6
   lungeTelegraphTime: 0.38
-  lungeSpeed: 26
+  lungeSpeed: 20
   lungeDuration: 0.3
   lungeDamage: 24
   lungePostureDamage: 25
@@ -2744,7 +2744,7 @@ MonoBehaviour:
   sampleInterval: 0.1
   arenaDiameter: 20
   expectedMaxDashesPerWindow: 6
-  showTelemetryOverlay: 1
+  showTelemetryOverlay: 0
 --- !u!1 &8526145629388037953
 GameObject:
   m_ObjectHideFlags: 0

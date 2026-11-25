@@ -823,7 +823,7 @@ namespace Chimera.Boss
         {
             Vector3 localPos = transform.localPosition;
             Vector2 flat = new Vector2(localPos.x, localPos.z);
-            const float maxArenaRadius = 8.6f;
+            const float maxArenaRadius = 5.1f;
 
             if (flat.sqrMagnitude > maxArenaRadius * maxArenaRadius)
             {

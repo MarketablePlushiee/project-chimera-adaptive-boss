@@ -606,7 +606,7 @@ namespace Chimera.Player
         {
             Vector3 localPos = transform.localPosition;
             Vector2 flat = new Vector2(localPos.x, localPos.z);
-            const float maxArenaRadius = 8.8f;
+            const float maxArenaRadius = 5.3f;
 
             if (flat.sqrMagnitude > maxArenaRadius * maxArenaRadius)
             {
